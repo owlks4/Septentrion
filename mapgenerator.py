@@ -54,8 +54,7 @@ class Room():
         self.testOffsetX = 0
 
     def draw(self):
-        angle_degrees = -globalVars.cameraRotation
-        self.surf = pygame.transform.rotate(self.surfUnrotated, angle_degrees)        
+        self.surf = pygame.transform.rotate(self.surfUnrotated, -globalVars.cameraRotation)        
 
         p = Vec2d(self.x, self.y)
 
@@ -64,21 +63,21 @@ class Room():
         diffX = 0
         diffY = 0
 
-        if angle_degrees < 0 and angle_degrees >= -90:
-            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1] #WORKS! DON'T TOUCH IT! # half the difference between the width of the unrotated and the width of the rotated, i.e. the width across the sloped part that has been created
-        elif angle_degrees <= -90 and angle_degrees >= -180:
-            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1] - numpy.cos(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[0] 
-            diffY = numpy.sin(numpy.radians((-angle_degrees) - 90)) * self.surfUnrotated.get_size()[1]
-        elif angle_degrees >= 90 and angle_degrees <= 180:
-            diffX = numpy.cos(numpy.radians(180-(-angle_degrees))) * self.surfUnrotated.get_size()[0] 
-            diffY = numpy.sin(numpy.radians((-angle_degrees) - 90)) * self.surfUnrotated.get_size()[1] - numpy.sin(numpy.radians(180-(-angle_degrees))) * self.surfUnrotated.get_size()[0]
-        elif angle_degrees >= 0 and angle_degrees < 90:
-            diffY = numpy.sin(numpy.radians(angle_degrees)) * self.surfUnrotated.get_size()[0]
+        angle_rads = numpy.radians(-globalVars.cameraRotation)
+                                               
+        if globalVars.cameraRotation > 0 and globalVars.cameraRotation <= 90:
+            diffX = numpy.sin(-angle_rads) * self.surfUnrotated.get_size()[1] # WORKS! DON'T TOUCH IT! # half the difference between the width of the unrotated and the width of the rotated, i.e. the width across the sloped part that has been created
+        elif globalVars.cameraRotation >= 90 and -globalVars.cameraRotation <= 180:
+            diffX = numpy.sin(-angle_rads) * self.surfUnrotated.get_size()[1] - numpy.cos(angle_rads) * self.surfUnrotated.get_size()[0] 
+            diffY = numpy.sin(numpy.radians(globalVars.cameraRotation - 90)) * self.surfUnrotated.get_size()[1]
+        elif globalVars.cameraRotation <= -90 and globalVars.cameraRotation >= -180:
+            diffX = numpy.cos(numpy.radians(180-globalVars.cameraRotation)) * self.surfUnrotated.get_size()[0] 
+            diffY = -numpy.sin(angle_rads + numpy.radians(90)) * self.surfUnrotated.get_size()[1] - numpy.sin(angle_rads + numpy.radians(180)) * self.surfUnrotated.get_size()[0]
+        elif globalVars.cameraRotation <= 0 and globalVars.cameraRotation > -90:
+            diffY = numpy.sin(angle_rads) * self.surfUnrotated.get_size()[0]
 
         offset = Vec2d(diffX,diffY)
         p = p - offset
-
-        print(angle_degrees)
 
         globalVars.screen.blit(self.surf, (round((p.x)+globalVars.SCREEN_WIDTH/2), round(p.y+globalVars.SCREEN_HEIGHT/2)))
 
@@ -112,7 +111,7 @@ class Tileset():
             case TileType.FLOOR_TRIM:
                 return (24,8,8,8)
             case _:
-                print(tile.tileType)
+                print("Instructions for cutting the tileType "+str(tile.tileType) +" from the tileset were not found!")
 
 def recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x,y):
     color = image.getpixel((x,y))

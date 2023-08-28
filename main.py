@@ -267,11 +267,6 @@ while running:
 
     globalVars.screen.fill("black")
 
-    posForCircle = Vec2d(200,300)
-    posForCircle = renderhelper.rotatePosAroundPivot(posForCircle,globalVars.cameraPosition,globalVars.cameraRotation)
-    posForCircle = Vec2d(posForCircle.x+globalVars.SCREEN_WIDTH/2,posForCircle.y+globalVars.SCREEN_HEIGHT/2)
-    pygame.draw.circle(globalVars.screen,"yellow",posForCircle,50)
-    
     #pygame.draw.rect(screen,"forestgreen",[0+cameraPosition.x,555+cameraPosition.y,1280,720])
         
     if globalVars.PHYSICS_DEBUG_DRAW:
@@ -288,8 +283,6 @@ while running:
     for sprite in sceneObjects:
         sprite.evaluateMotion()
         sprite.draw()
-
- 
 
     pygame.display.flip()
     
