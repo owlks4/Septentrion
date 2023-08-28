@@ -3,6 +3,10 @@ import PIL.Image
 import pygame
 from pygame import Surface
 from enum import Enum
+import numpy
+import renderhelper
+import globalVars
+from pymunk import Vec2d
 
 class TileType(Enum):
     CENTRE = 0
@@ -14,6 +18,7 @@ class TileType(Enum):
     FLOOR_TRIM = 6
 
 GLOBAL_SPRITE_SCALE_FACTOR = 0  #this gets set by main.py fairly immediately; it's only duplicated here to avoid a circular reference
+screen = None #this gets set by main.py fairly immediately; it's only duplicated here to avoid a circular reference
 
 class Room():
     def __init__(self,tilecolor):
@@ -33,17 +38,50 @@ class Room():
             if tile.y > maxY:
                 maxY = tile.y
 
-        self.x = minX * 8 * GLOBAL_SPRITE_SCALE_FACTOR
-        self.y = minY * 8 * GLOBAL_SPRITE_SCALE_FACTOR
+        self.x = minX * 8 * globalVars.SPRITE_SCALE_FACTOR
+        self.y = minY * 8 * globalVars.SPRITE_SCALE_FACTOR
 
-        width = (maxX - minX) + 8       #The +8 is because it's only looking at the topleftmost corners of tiles; if we didn't add 8, the tiles along the right and the bottom would be missed out, because the room rect would only have reached their origin, rather than having encompassed their extents
-        height = (maxY - minY) + 8
+        width = (maxX - minX) + 1       #The +1 is because it's only looking at the topleftmost corners of tiles; if we didn't add 1, the tiles along the right and the bottom would be missed out, because the room rect would only have reached their origin, rather than having encompassed their extents
+        height = (maxY - minY) + 1
 
-        self.surf = Surface((width*8, height*8))
+        self.surfUnrotated = Surface((width*8, height*8)).convert_alpha()
 
         for tile in self.tiles:
-            self.surf.blit(self.tileset.image, ((tile.x - minX)*8, (tile.y-minY)*8), self.tileset.getCropAreaForTileType(tile))
-        
+            self.surfUnrotated.blit(self.tileset.image, ((tile.x - minX)*8, (tile.y-minY)*8), self.tileset.getCropAreaForTileType(tile))
+
+        self.surfUnrotated = pygame.transform.scale_by(self.surfUnrotated,globalVars.SPRITE_SCALE_FACTOR)
+
+        self.testOffsetX = 0
+
+    def draw(self):
+        angle_degrees = -globalVars.cameraRotation
+        self.surf = pygame.transform.rotate(self.surfUnrotated, angle_degrees)        
+
+        p = Vec2d(self.x, self.y)
+
+        p = renderhelper.rotatePosAroundPivot(p, globalVars.cameraPosition, globalVars.cameraRotation)   #rotate position around camera pivot, to account for camera rotation
+
+        diffX = 0
+        diffY = 0
+
+        if angle_degrees < 0 and angle_degrees > -90:
+            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1] #WORKS! DON'T TOUCH IT! # half the difference between the width of the unrotated and the width of the rotated, i.e. the width across the sloped part that has been created
+        elif angle_degrees > 0 and angle_degrees < 90:
+            diffY = numpy.sin(numpy.radians(angle_degrees)) * self.surfUnrotated.get_size()[0]
+        else:
+            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1]
+
+
+        offset = Vec2d(diffX,diffY)
+        p = p - offset
+
+        print(angle_degrees)
+
+        globalVars.screen.blit(self.surf, (round((p.x)+globalVars.SCREEN_WIDTH/2), round(p.y+globalVars.SCREEN_HEIGHT/2)))
+
+    def evaluateMotion(self):
+        return
+
 class Tile():
     def __init__(self,x,y,tileType):    #TileType: controlled by the green channel.
         self.x = x
@@ -73,7 +111,7 @@ class Tileset():
             case _:
                 print(tile.tileType)
 
-def recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y):
+def recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x,y):
     color = image.getpixel((x,y))
     image.putpixel((x,y),(color[0],color[1],color[2],128))
     t = Tile(x,y,color[2])
@@ -81,22 +119,22 @@ def recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y):
     if x-1 >= 0:    #check to left
         potential = image.getpixel((x-1,y))
         if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
-            recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x-1,y)
+            recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x-1,y)
 
     if x+1 < image.width:    #check to right
         potential = image.getpixel((x+1,y))
         if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
-            recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x+1,y)
+            recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x+1,y)
 
     if y-1 >= 0:    #check above
         potential = image.getpixel((x,y-1))
         if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
-            recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y-1)
+            recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x,y-1)
 
     if y+1 < image.height:    #check below
         potential = image.getpixel((x,y+1))
         if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
-            recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y+1)
+            recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x,y+1)
 
     room.tiles.append(t)
 
@@ -117,7 +155,7 @@ def loadTilemap(path):
             if pixelColor[3] == 128:     #if the alpha value of the pixel was 128, it means we already checked it in a previous loop, and that it's already forming part of a room - so no need to check it
                 continue
             newRoom = Room(pixelColor)
-            recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(ship,newRoom,x,y)
+            recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(ship,newRoom,x,y)
             rooms.append(newRoom)
 
     # We now have a list of rooms where each room contains a bunch of tile coordinates, as well as the room's colour, which corresponds to the room's intended tileset
