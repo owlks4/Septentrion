@@ -1,0 +1,12 @@
+The colour of a pixel on the tilemap provides instructions as to
+how it should look in-game.
+
+The RGBA value of each pixel is used for this as follows:
+
+R: the room tileset it should draw from.
+G: nothing.
+B: the type of tile within the tileset.
+A: scratchpad, for runtime use only.
+
+
+Pure black (0,0,0) is disallowed for rooms, as it indicates space that is extraneous to the game.

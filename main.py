@@ -15,6 +15,8 @@ FRAME_RATE = 60
 MAX_VELOCITY = 144
 MAX_ANGULAR_VELOCITY = 1
 GRAVITY_G = 9.81
+GLOBAL_SPRITE_SCALE_FACTOR = 3
+mapgenerator.GLOBAL_SPRITE_SCALE_FACTOR = GLOBAL_SPRITE_SCALE_FACTOR
 
 cameraPosition = Vec2d(0,0)
 cameraRotation = 0
@@ -156,9 +158,8 @@ class StaticSprite(pygame.sprite.Sprite):
         sceneObjects.append(self)
         global space
         super(StaticSprite, self).__init__()
-        scale = 3
         self.angle = 0
-        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png").convert_alpha(), scale);    
+        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png").convert_alpha(), GLOBAL_SPRITE_SCALE_FACTOR);    
         self.surf = self.surfUnrotated        
         self.rect = self.surf.get_rect()
         self.position = Vec2d(spawnX,spawnY)
@@ -189,9 +190,8 @@ class PhysicsObject(pygame.sprite.Sprite):
         sceneObjects.append(self)
         global space
         super(PhysicsObject, self).__init__()
-        scale = 3
         self.angle = 0
-        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png").convert_alpha(), scale);    
+        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png").convert_alpha(), GLOBAL_SPRITE_SCALE_FACTOR);    
         self.surf = self.surfUnrotated        
         self.rect = self.surf.get_rect()
         self.body = None
@@ -247,7 +247,11 @@ pygame.mixer.music.play(-1)
 
 rooms = mapgenerator.loadTilemap("./assets/shiplayout.png")
 rooms[0].makeSurface()
-rooms[0].surf = pygame.transform.scale_by(rooms[0].surf,3)
+rooms[0].surf = pygame.transform.scale_by(rooms[0].surf,GLOBAL_SPRITE_SCALE_FACTOR)
+
+rooms[1].makeSurface()
+rooms[1].surf = pygame.transform.scale_by(rooms[1].surf,GLOBAL_SPRITE_SCALE_FACTOR)
+
 
 bgtest = StaticSprite(300,550,"./assets/bg")
 
@@ -256,7 +260,6 @@ veh = PhysicsObject(200,524,"./assets/capris")
 currentVeh = veh
 
 otherVeh = PhysicsObject(400,550,"./assets/capris")
-
 
 
 while running:
@@ -285,7 +288,8 @@ while running:
     posForCircle = Vec2d(posForCircle.x+SCREEN_WIDTH/2,posForCircle.y+SCREEN_HEIGHT/2)
     pygame.draw.circle(screen,"red",posForCircle,50)
 
-    screen.blit(rooms[0].surf, (round(SCREEN_WIDTH/2), round(SCREEN_HEIGHT/2)))
+    screen.blit(rooms[0].surf, (round(rooms[0].x + SCREEN_WIDTH/2), round(rooms[0].y + SCREEN_HEIGHT/2)))
+    screen.blit(rooms[1].surf, (round(rooms[1].x + SCREEN_WIDTH/2), round(rooms[1].y + SCREEN_HEIGHT/2)))
 
     #pygame.draw.rect(screen,"forestgreen",[0+cameraPosition.x,555+cameraPosition.y,1280,720])
         

@@ -1,11 +1,24 @@
 import sys
 import PIL.Image
 import pygame
+from pygame import Surface
+from enum import Enum
+
+class TileType(Enum):
+    CENTRE = 0
+    LEFT_WALL = 1
+    RIGHT_WALL = 2
+    CEILING = 3
+    FLOOR = 4
+    CEILING_TRIM = 5
+    FLOOR_TRIM = 6
+
+GLOBAL_SPRITE_SCALE_FACTOR = 0  #this gets set by main.py fairly immediately; it's only duplicated here to avoid a circular reference
 
 class Room():
     def __init__(self,tilecolor):
         self.tiles = []
-        self.tiletype = tilecolor
+        self.tileset = Tileset("./assets/tilesets/"+str(tilecolor[0])+".png")
     def makeSurface(self):
         minX = minY = sys.maxsize
         maxX = maxY = -sys.maxsize
@@ -19,58 +32,77 @@ class Room():
                 minY = tile.y
             if tile.y > maxY:
                 maxY = tile.y
-                
-        width = (maxX - minX)
-        height = (maxY - minY)
 
-        self.surf = pygame.Surface((width*8, height*8))
+        self.x = minX * 8 * GLOBAL_SPRITE_SCALE_FACTOR
+        self.y = minY * 8 * GLOBAL_SPRITE_SCALE_FACTOR
 
-        #TODO: then blit the required tile appearances onto the tiles according to their 'hasRight', 'hasLeft', etc combinations.
+        width = (maxX - minX) + 8       #The +8 is because it's only looking at the topleftmost corners of tiles; if we didn't add 8, the tiles along the right and the bottom would be missed out, because the room rect would only have reached their origin, rather than having encompassed their extents
+        height = (maxY - minY) + 8
 
+        self.surf = Surface((width*8, height*8))
+
+        for tile in self.tiles:
+            self.surf.blit(self.tileset.image, ((tile.x - minX)*8, (tile.y-minY)*8), self.tileset.getCropAreaForTileType(tile))
+        
 class Tile():
-    def __init__(self,x,y):
+    def __init__(self,x,y,tileType):    #TileType: controlled by the green channel.
         self.x = x
         self.y = y
-        # and the following are for determining the visual appearance of this tile
-        self.hasLeft = False
-        self.hasRight = False
-        self.hasUp = False
-        self.hasDown = False
+        self.tileType = TileType(tileType)
 
-def colorsMatchAndAlphaIsNot128(c0,c1):
-    if c0[0] == c1[0] and c0[1] == c1[1] and c0[2] == c1[2] and not c1[3] == 128:
-        return True
-    return False
+class Tileset():
+    def __init__(self,path):
+        self.image = pygame.image.load(path)
+    
+    def getCropAreaForTileType(self,tile):
+        match tile.tileType:
+            case TileType.CENTRE:
+                return (8,8,8,8)
+            case TileType.LEFT_WALL: 
+                return (16,8,8,8)
+            case TileType.RIGHT_WALL:
+                return (0,8,8,8)
+            case TileType.CEILING:
+                return (8,16,8,8)
+            case TileType.FLOOR:
+                return (8,0,8,8)
+            case TileType.CEILING_TRIM:
+                return (24,0,8,8)
+            case TileType.FLOOR_TRIM:
+                return (24,8,8,8)
+            case _:
+                print(tile.tileType)
 
 def recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y):
     color = image.getpixel((x,y))
     image.putpixel((x,y),(color[0],color[1],color[2],128))
-    t = Tile(x,y)
-    room.tiles.append(t)
+    t = Tile(x,y,color[2])
 
     if x-1 >= 0:    #check to left
         potential = image.getpixel((x-1,y))
-        if colorsMatchAndAlphaIsNot128(color,potential):    #make sure it matches the colour and has not yet been processed
-            t.hasLeft = True
+        if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
             recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x-1,y)
 
     if x+1 < image.width:    #check to right
         potential = image.getpixel((x+1,y))
-        if colorsMatchAndAlphaIsNot128(color,potential):    #make sure it matches the colour and has not yet been processed
-            t.hasRight = True
+        if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
             recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x+1,y)
 
     if y-1 >= 0:    #check above
         potential = image.getpixel((x,y-1))
-        if colorsMatchAndAlphaIsNot128(color,potential):    #make sure it matches the colour and has not yet been processed
-            t.hasUp = True
+        if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
             recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y-1)
 
     if y+1 < image.height:    #check below
         potential = image.getpixel((x,y+1))
-        if colorsMatchAndAlphaIsNot128(color,potential):    #make sure it matches the colour and has not yet been processed
-            t.hasDown = True
+        if color[0] == potential[0] and not color[3] == 128:    #make sure the red channel matches, and that the pixel has not yet been processed
             recursivelyFindNeighbouringPixelsOfSameColourAndAddToRoom(image,room,x,y+1)
+
+    room.tiles.append(t)
+
+def colToHex(rgbTuple):
+    tupleWithoutAlpha = (rgbTuple[0],rgbTuple[1],rgbTuple[2])
+    return '#%02x%02x%02x' % tupleWithoutAlpha
 
 def loadTilemap(path):
     ship = PIL.Image.open(path)
