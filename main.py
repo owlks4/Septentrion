@@ -3,6 +3,8 @@ import pygame
 import pymunk.pygame_util
 import pymunk
 from pymunk import Vec2d
+import mapgenerator
+from mapgenerator import Room
 
 pygame.init()
 
@@ -17,6 +19,7 @@ GRAVITY_G = 9.81
 cameraPosition = Vec2d(0,0)
 cameraRotation = 0
 
+rooms = []
 sceneObjects = []
 
 screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
@@ -28,7 +31,10 @@ draw_options = pymunk.pygame_util.DrawOptions(screen)
 #add the ground
 ground = pymunk.Segment(space.static_body, Vec2d(0, SCREEN_HEIGHT*0.8), Vec2d(SCREEN_WIDTH, SCREEN_HEIGHT*0.8), 1.0)
 ground.friction = 0.5
+ground.filter = pymunk.ShapeFilter(0,0b01,0b10)
 space.add(ground)
+
+player_collision_filter = pymunk.ShapeFilter(0,0b10,0b01)
 
 lastFrameWasAt = 0
 lastFrameDuration = 0
@@ -198,6 +204,7 @@ class PhysicsObject(pygame.sprite.Sprite):
         poly = pymunk.Poly(self.body,getVerticesForRect(self.rect))
         poly.mass = mass
         poly.friction = friction
+        poly.filter = player_collision_filter
             
         space.add(self.body,poly)      
             
@@ -238,6 +245,10 @@ class PhysicsObject(pygame.sprite.Sprite):
 pygame.mixer.music.load('./assets/music/TheSinkingShip.mp3')
 pygame.mixer.music.play(-1)
 
+rooms = mapgenerator.loadTilemap("./assets/shiplayout.png")
+rooms[0].makeSurface()
+rooms[0].surf = pygame.transform.scale_by(rooms[0].surf,3)
+
 bgtest = StaticSprite(300,550,"./assets/bg")
 
 veh = PhysicsObject(200,524,"./assets/capris")
@@ -273,6 +284,8 @@ while running:
     posForCircle = rotatePosAroundPivot(posForCircle,cameraPosition,cameraRotation)
     posForCircle = Vec2d(posForCircle.x+SCREEN_WIDTH/2,posForCircle.y+SCREEN_HEIGHT/2)
     pygame.draw.circle(screen,"red",posForCircle,50)
+
+    screen.blit(rooms[0].surf, (round(SCREEN_WIDTH/2), round(SCREEN_HEIGHT/2)))
 
     #pygame.draw.rect(screen,"forestgreen",[0+cameraPosition.x,555+cameraPosition.y,1280,720])
         
