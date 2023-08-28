@@ -64,13 +64,16 @@ class Room():
         diffX = 0
         diffY = 0
 
-        if angle_degrees < 0 and angle_degrees > -90:
+        if angle_degrees < 0 and angle_degrees >= -90:
             diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1] #WORKS! DON'T TOUCH IT! # half the difference between the width of the unrotated and the width of the rotated, i.e. the width across the sloped part that has been created
-        elif angle_degrees > 0 and angle_degrees < 90:
+        elif angle_degrees <= -90 and angle_degrees >= -180:
+            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1] - numpy.cos(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[0] 
+            diffY = numpy.sin(numpy.radians((-angle_degrees) - 90)) * self.surfUnrotated.get_size()[1]
+        elif angle_degrees >= 90 and angle_degrees <= 180:
+            diffX = numpy.cos(numpy.radians(180-(-angle_degrees))) * self.surfUnrotated.get_size()[0] 
+            diffY = numpy.sin(numpy.radians((-angle_degrees) - 90)) * self.surfUnrotated.get_size()[1] - numpy.sin(numpy.radians(180-(-angle_degrees))) * self.surfUnrotated.get_size()[0]
+        elif angle_degrees >= 0 and angle_degrees < 90:
             diffY = numpy.sin(numpy.radians(angle_degrees)) * self.surfUnrotated.get_size()[0]
-        else:
-            diffX = numpy.sin(numpy.radians(-angle_degrees)) * self.surfUnrotated.get_size()[1]
-
 
         offset = Vec2d(diffX,diffY)
         p = p - offset
