@@ -1,14 +1,10 @@
 import sys
 import PIL.Image
-import pygame
-from pygame import Surface
-from enum import Enum
-import numpy
-import renderhelper
+from enum import IntEnum
 import globalVars
-from pymunk import Vec2d
+import pyglet
 
-class TileType(Enum):
+class TileType(IntEnum):
     CENTRE = 0
     LEFT_WALL = 1
     RIGHT_WALL = 2
@@ -19,6 +15,7 @@ class TileType(Enum):
 
 GLOBAL_SPRITE_SCALE_FACTOR = 0  #this gets set by main.py fairly immediately; it's only duplicated here to avoid a circular reference
 screen = None #this gets set by main.py fairly immediately; it's only duplicated here to avoid a circular reference
+backgroundBatch = pyglet.graphics.Batch()
 
 class Room():
     def __init__(self,tilecolor):
@@ -44,42 +41,12 @@ class Room():
         width = (maxX - minX) + 1       #The +1 is because it's only looking at the topleftmost corners of tiles; if we didn't add 1, the tiles along the right and the bottom would be missed out, because the room rect would only have reached their origin, rather than having encompassed their extents
         height = (maxY - minY) + 1
 
-        self.surfUnrotated = Surface((width*8, height*8)).convert_alpha()
-
         for tile in self.tiles:
-            self.surfUnrotated.blit(self.tileset.image, ((tile.x - minX)*8, (tile.y-minY)*8), self.tileset.getCropAreaForTileType(tile))
-
-        self.surfUnrotated = pygame.transform.scale_by(self.surfUnrotated,globalVars.SPRITE_SCALE_FACTOR)
-
-        self.testOffsetX = 0
-
-    def draw(self):
-        self.surf = pygame.transform.rotate(self.surfUnrotated, -globalVars.cameraRotation)        
-
-        p = Vec2d(self.x, self.y)
-
-        p = renderhelper.rotatePosAroundPivot(p, globalVars.cameraPosition, globalVars.cameraRotation)   #rotate position around camera pivot, to account for camera rotation
-
-        diffX = 0
-        diffY = 0
-
-        angle_rads = numpy.radians(-globalVars.cameraRotation)
-                                               
-        if globalVars.cameraRotation > 0 and globalVars.cameraRotation <= 90:
-            diffX = numpy.sin(-angle_rads) * self.surfUnrotated.get_size()[1] # WORKS! DON'T TOUCH IT! # half the difference between the width of the unrotated and the width of the rotated, i.e. the width across the sloped part that has been created
-        elif globalVars.cameraRotation >= 90 and -globalVars.cameraRotation <= 180:
-            diffX = numpy.sin(-angle_rads) * self.surfUnrotated.get_size()[1] - numpy.cos(angle_rads) * self.surfUnrotated.get_size()[0] 
-            diffY = numpy.sin(numpy.radians(globalVars.cameraRotation - 90)) * self.surfUnrotated.get_size()[1]
-        elif globalVars.cameraRotation <= -90 and globalVars.cameraRotation >= -180:
-            diffX = numpy.cos(numpy.radians(180-globalVars.cameraRotation)) * self.surfUnrotated.get_size()[0] 
-            diffY = -numpy.sin(angle_rads + numpy.radians(90)) * self.surfUnrotated.get_size()[1] - numpy.sin(angle_rads + numpy.radians(180)) * self.surfUnrotated.get_size()[0]
-        elif globalVars.cameraRotation <= 0 and globalVars.cameraRotation > -90:
-            diffY = numpy.sin(angle_rads) * self.surfUnrotated.get_size()[0]
-
-        offset = Vec2d(diffX,diffY)
-        p = p - offset
-
-        globalVars.screen.blit(self.surf, (round((p.x)+globalVars.SCREEN_WIDTH/2), round(p.y+globalVars.SCREEN_HEIGHT/2)))
+            image_part = self.tileset.tiles[tile.tileType]         
+            pasteArea = (((tile.x*8*globalVars.SPRITE_SCALE_FACTOR)+globalVars.SCREEN_WIDTH/2), (tile.y*8*globalVars.SPRITE_SCALE_FACTOR)+globalVars.SCREEN_HEIGHT/2)
+            tile.sprite = pyglet.sprite.Sprite(image_part, batch=backgroundBatch,x=pasteArea[0],y=pasteArea[1])
+            tile.sprite.scale = globalVars.SPRITE_SCALE_FACTOR
+            tile.image = None
 
     def evaluateMotion(self):
         return
@@ -92,10 +59,14 @@ class Tile():
 
 class Tileset():
     def __init__(self,path):
-        self.image = pygame.image.load(path)
+        image = pyglet.image.load(path)
+        self.tiles = []
+        for tileType in TileType:
+            cropArea = self.getCropAreaForTileType(tileType)
+            self.tiles.append(image.get_region(x=cropArea[0], y=cropArea[1], width=cropArea[2], height=cropArea[3]))
     
-    def getCropAreaForTileType(self,tile):
-        match tile.tileType:
+    def getCropAreaForTileType(self,tileType):
+        match tileType:
             case TileType.CENTRE:
                 return (8,8,8,8)
             case TileType.LEFT_WALL: 
@@ -107,9 +78,9 @@ class Tileset():
             case TileType.FLOOR:
                 return (8,0,8,8)
             case TileType.CEILING_TRIM:
-                return (24,0,8,8)
-            case TileType.FLOOR_TRIM:
                 return (24,8,8,8)
+            case TileType.FLOOR_TRIM:
+                return (24,16,8,8)
             case _:
                 print("Instructions for cutting the tileType "+str(tile.tileType) +" from the tileset were not found!")
 
