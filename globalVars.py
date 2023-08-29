@@ -1,6 +1,7 @@
 from pymunk import Vec2d
-import pygame
 import pyglet
+from pyglet.gl import glTranslatef  
+from pyglet.gl import glRotatef
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
@@ -19,6 +20,12 @@ pyglet.gl.glEnable(pyglet.gl.GL_DEPTH_TEST)
 pyglet.gl.glEnable(pyglet.gl.GL_CULL_FACE)
 pyglet.image.Texture.default_mag_filter = pyglet.image.GL_NEAREST
 
+def setCameraPosition(newPosition):
+    global cameraPosition
+    changeAmount = newPosition - cameraPosition
+    translateCameraPosition(changeAmount)
+
 def translateCameraPosition(translation):
     global cameraPosition
     cameraPosition = Vec2d(cameraPosition.x + translation.x, cameraPosition.y + translation.y)
+    glTranslatef(translation.x,translation.y,0)

@@ -4,19 +4,19 @@ import pymunk.pygame_util
 import pymunk
 from pymunk import Vec2d
 import mapgenerator
-from mapgenerator import Room
 import renderhelper
 import globalVars
 import pyglet
 from pyglet.window import key
 from pyglet.gl import glTranslatef  
 from pyglet.gl import glRotatef
+import pymunk.pyglet_util
 
 rooms = []
 sceneObjects = []
 
 space = pymunk.Space()
-space.gravity = Vec2d(0,globalVars.GRAVITY_G)
+space.gravity = Vec2d(0,-globalVars.GRAVITY_G)
 
 #add the ground
 ground = pymunk.Segment(space.static_body, Vec2d(0, globalVars.SCREEN_HEIGHT*0.2), Vec2d(globalVars.SCREEN_WIDTH, globalVars.SCREEN_HEIGHT*0.2), 1.0)
@@ -24,42 +24,44 @@ ground.friction = 0.5
 ground.filter = pymunk.ShapeFilter(0,0b01,0b10)
 space.add(ground)
 
-player_collision_filter = pymunk.ShapeFilter(0,0b10,0b01)
+draw_options = pymunk.pyglet_util.DrawOptions()
 
-lastFrameWasAt = 0
-lastFrameDuration = 0
-nanosecondsPerFrame = 1000000000 / globalVars.FRAME_RATE
+player_collision_filter = pymunk.ShapeFilter(0,0b10,0b01)
 
 running = True
 
-up = down = right = left = a = d = spacebar = False
-
 movementVector = Vec2d(0,0)
-turnAmount = 0
 
-speedForMovement = 400
-speedForTurn = 2500
+speedForMovement = 4000
 
 currentVeh = 0
 
 keys = None
 
+spritesBatch = pyglet.graphics.Batch()
+
 def movement():
+    global movementVector, speedForMovement
+
+    if keys[key.LEFT]:
+        movementVector = Vec2d(-speedForMovement,movementVector.y)
+    elif keys[key.RIGHT]:
+        movementVector = Vec2d(speedForMovement,movementVector.y)
+    else:
+        movementVector = Vec2d(0,movementVector.y)
+
     if keys[key.I]:
-        glTranslatef(0,10,0)
         globalVars.translateCameraPosition(Vec2d(0,10))
     if keys[key.K]:
-        glTranslatef(0,-10,0)
         globalVars.translateCameraPosition(Vec2d(0,-10))
     if keys[key.J]:
-        glTranslatef(-10,0,0)
         globalVars.translateCameraPosition(Vec2d(-10,0))
     if keys[key.L]:
-        glTranslatef(10,0,0)
         globalVars.translateCameraPosition(Vec2d(10,0))
     if keys[key.D]:
         glTranslatef((globalVars.SCREEN_WIDTH/2)-globalVars.cameraPosition.x,(globalVars.SCREEN_HEIGHT/2)-globalVars.cameraPosition.y,0)
         glRotatef(10, 0, 0, 100)
+        globalVars.cameraRotation += 10
         glTranslatef(-(globalVars.SCREEN_WIDTH/2)+globalVars.cameraPosition.x,-(globalVars.SCREEN_HEIGHT/2)+globalVars.cameraPosition.y,0)
 
 
@@ -81,7 +83,6 @@ def getVerticesForRect(rect):
 def limitedVelocityFunc(body, gravity, damping, dt):
     pymunk.Body.update_velocity(body, space.gravity, 0.999, dt)  #then reset to regular gravity
     magnitude = body.velocity.length
-    magnitude = body.velocity.length
                 
     body.angular_velocity = 0   #Angular velocity is set to 0 here. Temporarily? We certainly don't want the player to be able to have angular velocity, but other objects (like boxes etc) might be able to.
 
@@ -100,47 +101,31 @@ class StaticSprite(pygame.sprite.Sprite):
         global space
         super(StaticSprite, self).__init__()
         self.angle = 0
-        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png"), globalVars.SPRITE_SCALE_FACTOR);    
-        self.surf = self.surfUnrotated        
-        self.rect = self.surf.get_rect()
-        self.position = Vec2d(spawnX,spawnY)
-    
-    def draw(self):
-        resistCameraRotationVisually = False
+        image = pyglet.image.load(imgPath+".png")
+        self.sprite = pyglet.sprite.Sprite(image, batch=spritesBatch,x=spawnX,y=spawnY)
+        self.sprite.scale = globalVars.SPRITE_SCALE_FACTOR
 
-        angle_degrees = numpy.degrees(-self.angle)
-        
-        if not resistCameraRotationVisually:
-            angle_degrees -= globalVars.cameraRotation
-            self.surf = pygame.transform.rotate(self.surfUnrotated, angle_degrees)        
-
-        p = Vec2d(self.position.x, self.position.y)
-
-        p = renderhelper.rotatePosAroundPivot(p,globalVars.cameraPosition,globalVars.cameraRotation)   #rotate position around camera pivot, to account for camera rotation
-
-        offset = Vec2d(*self.surf.get_size()) / 2
-        p = p - offset
-
-        globalVars.screen.blit(self.surf, (round(p.x+globalVars.SCREEN_WIDTH/2), round(p.y+globalVars.SCREEN_HEIGHT/2)))
-
-    def evaluateMotion(self):
-        return  #This will get called, but only does anything on physics objects. But could be used to make it evaluate animation?
+    def update(self):
+        return
 
 class PhysicsObject(pygame.sprite.Sprite):
     def __init__(self,spawnX,spawnY,imgPath):
         sceneObjects.append(self)
         global space
         super(PhysicsObject, self).__init__()
-        self.angle = 0
-        self.surfUnrotated = pygame.transform.scale_by(pygame.image.load(imgPath+".png").convert_alpha(), globalVars.SPRITE_SCALE_FACTOR);    
-        self.surf = self.surfUnrotated        
-        self.rect = self.surf.get_rect()
+
+        image = pyglet.image.load(imgPath+".png")
+        self.sprite = pyglet.sprite.Sprite(image, batch=spritesBatch,x=spawnX,y=spawnY)
+        self.sprite.scale = globalVars.SPRITE_SCALE_FACTOR
+        self.sprite.rotation = 0
+        self.rect = [0,0,self.sprite.width,self.sprite.height]
+
         self.body = None
         self.body = pymunk.Body()
         self.body.velocity_func = limitedVelocityFunc
         
         mass = 52
-        friction = 1
+        friction = 0.5
 
         poly = pymunk.Poly(self.body,getVerticesForRect(self.rect))
         poly.mass = mass
@@ -150,84 +135,61 @@ class PhysicsObject(pygame.sprite.Sprite):
         space.add(self.body,poly)      
             
         self.body.position = spawnX,spawnY
-
-        self.rect = self.surf.get_rect()
-        self.body.center_of_gravity = (self.rect.x / 2, self.rect.y/2)
     
-    def draw(self):
-        resistCameraRotationVisually = True
-
-        angle_degrees = numpy.degrees(-self.body.angle)
-        
-        if not resistCameraRotationVisually:
-            angle_degrees -= globalVars.cameraRotation
-            self.surf = pygame.transform.rotate(self.surfUnrotated, angle_degrees)        
-
-        p = Vec2d(self.body.position.x, self.body.position.y)
-
-        p = renderhelper.rotatePosAroundPivot(p,globalVars.cameraPosition,globalVars.cameraRotation)   #rotate position around camera pivot, to account for camera rotation
-
-        offset = Vec2d(*self.surf.get_size()) / 2
-        p = p - offset
-
-        globalVars.screen.blit(self.surf, (round(p.x+globalVars.SCREEN_WIDTH/2), round(p.y+globalVars.SCREEN_HEIGHT/2)))
-
-    def evaluateMotion(self):
+    def update(self):
         global movementVector
+        self.sprite.x = numpy.round(self.body.position.x)
+        self.sprite.y = numpy.round(self.body.position.y)
+
+        resistCameraRotationVisually = True
+        if resistCameraRotationVisually:
+            self.sprite.rotation = globalVars.cameraRotation
 
         if self == currentVeh:
             if not (movementVector.x == 0 and movementVector.y == 0):
                 self.body.apply_force_at_world_point(movementVector,self.body.local_to_world((0,0)))
-                self.body.torque = movementVector.x*1.1
 
-            if not turnAmount == 0:
-                self.body.torque = turnAmount
-
-music = pyglet.resource.media('assets/music/TheSinkingShip.mp3')
+music = pyglet.resource.media('assets/music/CalmBeforeTheStorm.mp3')
 music.play()
 
 rooms = mapgenerator.loadTilemap("./assets/shiplayout.png")
 for room in rooms:
     room.makeSurface()
 
-#bgtest = StaticSprite(300,0,"./assets/bg")
+bgtest = StaticSprite(300,400,"./assets/bg")
 
-#veh = PhysicsObject(200,0,"./assets/capris")
+veh = PhysicsObject(200,400,"./assets/capris")
 
-#currentVeh = veh
+currentVeh = veh
 
-#otherVeh = PhysicsObject(400,0,"./assets/capris")
+otherVeh = PhysicsObject(400,400,"./assets/capris")
 
 def update(dt):
     movement()
-    space.step(dt)
-    print(dt)
-    return
+    space.step(dt*2)
 
-    #globalVars.cameraPosition=Vec2d(-veh.body.position.x,-veh.body.position.y)
+    for sprite in sceneObjects:
+        sprite.update()
+
+    camRotationRad = numpy.radians(-globalVars.cameraRotation)
+    space.gravity = -globalVars.GRAVITY_G * Vec2d(-numpy.sin(camRotationRad), numpy.cos(camRotationRad))    #align the gravity downwards relative to the camera's rotation
+
+    globalVars.setCameraPosition(Vec2d(-veh.sprite.x+globalVars.SCREEN_WIDTH/2,-veh.sprite.y+globalVars.SCREEN_HEIGHT/2))
 
     draw_options.transform = (
         pymunk.Transform.translation(globalVars.cameraPosition.x, globalVars.cameraPosition.y)        #these debug physics draws do not currently sync with camera rotation!
-        @ pymunk.Transform.translation(globalVars.SCREEN_WIDTH/2, globalVars.SCREEN_HEIGHT/2)
         )
 
-    camRotationRad = numpy.radians(-globalVars.cameraRotation)
-    space.gravity = globalVars.GRAVITY_G * Vec2d(-numpy.sin(camRotationRad), numpy.cos(camRotationRad))    #align the gravity downwards relative to the camera's rotation
-
-
-    if globalVars.PHYSICS_DEBUG_DRAW:
-        space.debug_draw(draw_options)
-
-globalVars.screen = pyglet.window.Window(width=globalVars.SCREEN_WIDTH, height=globalVars.SCREEN_HEIGHT, caption='Septentrion')
+globalVars.screen = pyglet.window.Window(width=globalVars.SCREEN_WIDTH, height=globalVars.SCREEN_HEIGHT, caption='Septentrion',vsync=True)
 
 @globalVars.screen.event
 def on_draw():
     globalVars.screen.clear()
     mapgenerator.backgroundBatch.draw()
+    spritesBatch.draw()
 
-    for sprite in sceneObjects:
-        sprite.evaluateMotion()
-        sprite.draw()
+    if globalVars.PHYSICS_DEBUG_DRAW:
+        space.debug_draw(draw_options)
 
 keys = key.KeyStateHandler()
 globalVars.screen.push_handlers(keys)

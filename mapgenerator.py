@@ -38,9 +38,6 @@ class Room():
         self.x = minX * 8 * globalVars.SPRITE_SCALE_FACTOR
         self.y = minY * 8 * globalVars.SPRITE_SCALE_FACTOR
 
-        width = (maxX - minX) + 1       #The +1 is because it's only looking at the topleftmost corners of tiles; if we didn't add 1, the tiles along the right and the bottom would be missed out, because the room rect would only have reached their origin, rather than having encompassed their extents
-        height = (maxY - minY) + 1
-
         for tile in self.tiles:
             image_part = self.tileset.tiles[tile.tileType]         
             pasteArea = (((tile.x*8*globalVars.SPRITE_SCALE_FACTOR)+globalVars.SCREEN_WIDTH/2), (tile.y*8*globalVars.SPRITE_SCALE_FACTOR)+globalVars.SCREEN_HEIGHT/2)
@@ -82,7 +79,7 @@ class Tileset():
             case TileType.FLOOR_TRIM:
                 return (24,16,8,8)
             case _:
-                print("Instructions for cutting the tileType "+str(tile.tileType) +" from the tileset were not found!")
+                print("Instructions for cutting the tileType "+str(tileType) +" from the tileset were not found!")
 
 def recursivelyFindNeighbouringPixelsWithSameRedChannelAndAddToRoom(image,room,x,y):
     color = image.getpixel((x,y))
