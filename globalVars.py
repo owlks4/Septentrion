@@ -5,7 +5,7 @@ from pyglet.gl import glRotatef
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-PHYSICS_DEBUG_DRAW = False
+PHYSICS_DEBUG_DRAW = True
 FRAME_RATE = 60.0
 MAX_VELOCITY = 144
 MAX_ANGULAR_VELOCITY = 1
@@ -29,3 +29,15 @@ def translateCameraPosition(translation):
     global cameraPosition
     cameraPosition = Vec2d(cameraPosition.x + translation.x, cameraPosition.y + translation.y)
     glTranslatef(translation.x,translation.y,0)
+
+def rotateCamera(rotateBy):
+    global cameraRotation
+    glTranslatef((SCREEN_WIDTH/2)-cameraPosition.x,(SCREEN_HEIGHT/2)-cameraPosition.y,0)
+    glRotatef(rotateBy, 0, 0, 100)
+    cameraRotation += rotateBy
+    glTranslatef(-(SCREEN_WIDTH/2)+cameraPosition.x,-(SCREEN_HEIGHT/2)+cameraPosition.y,0)
+
+def setCameraRotation(newRotation):
+    global cameraRotation
+    changeAmount = newRotation - cameraRotation
+    rotateCamera(changeAmount)

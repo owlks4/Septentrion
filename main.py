@@ -58,26 +58,18 @@ def movement():
         globalVars.translateCameraPosition(Vec2d(-10,0))
     if keys[key.L]:
         globalVars.translateCameraPosition(Vec2d(10,0))
+    if keys[key.A]:
+        globalVars.rotateCamera(-10)
     if keys[key.D]:
-        glTranslatef((globalVars.SCREEN_WIDTH/2)-globalVars.cameraPosition.x,(globalVars.SCREEN_HEIGHT/2)-globalVars.cameraPosition.y,0)
-        glRotatef(10, 0, 0, 100)
-        globalVars.cameraRotation += 10
-        glTranslatef(-(globalVars.SCREEN_WIDTH/2)+globalVars.cameraPosition.x,-(globalVars.SCREEN_HEIGHT/2)+globalVars.cameraPosition.y,0)
-
-
+        globalVars.rotateCamera(10)
+    if keys[key.S]:
+        globalVars.setCameraRotation(45)
+        
 def putObjectBehindOtherObjectInDrawList(object, other):
     sceneObjects.remove(object)
     sceneObjects.insert(sceneObjects.index(other),object) 
 
 def getVerticesForRect(rect):
-    w = rect[2] - rect[0]
-    h = rect[3] - rect[1]
-    
-    rect[0] -= w/2
-    rect[2] -= w/2
-    rect[1] -= h/2
-    rect[3] -= h/2
-    
     return [[rect[0],rect[1]],[rect[2],rect[1]],[rect[2],rect[3]],[rect[0],rect[3]]]
     
 def limitedVelocityFunc(body, gravity, damping, dt):
@@ -144,6 +136,7 @@ class PhysicsObject(pygame.sprite.Sprite):
         resistCameraRotationVisually = True
         if resistCameraRotationVisually:
             self.sprite.rotation = globalVars.cameraRotation
+            self.body.angle = -numpy.radians(globalVars.cameraRotation)
 
         if self == currentVeh:
             if not (movementVector.x == 0 and movementVector.y == 0):
@@ -176,20 +169,17 @@ def update(dt):
 
     globalVars.setCameraPosition(Vec2d(-veh.sprite.x+globalVars.SCREEN_WIDTH/2,-veh.sprite.y+globalVars.SCREEN_HEIGHT/2))
 
-    draw_options.transform = (
-        pymunk.Transform.translation(globalVars.cameraPosition.x, globalVars.cameraPosition.y)        #these debug physics draws do not currently sync with camera rotation!
-        )
-
 globalVars.screen = pyglet.window.Window(width=globalVars.SCREEN_WIDTH, height=globalVars.SCREEN_HEIGHT, caption='Septentrion',vsync=True)
 
 @globalVars.screen.event
 def on_draw():
     globalVars.screen.clear()
     mapgenerator.backgroundBatch.draw()
-    spritesBatch.draw()
-
+   
     if globalVars.PHYSICS_DEBUG_DRAW:
         space.debug_draw(draw_options)
+
+    spritesBatch.draw()
 
 keys = key.KeyStateHandler()
 globalVars.screen.push_handlers(keys)
